@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { LogOut, Upload, MessageCircle, DollarSign, Clock, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +7,13 @@ import ReceiptUploader from "@/components/ReceiptUploader";
 import EmployeeChatUI from "@/components/EmployeeChatUI";
 
 interface EmployeeDashboardProps {
-  userData: any;
+  userData: {
+    name: string;
+    email: string;
+    department: string;
+    id: string;
+    remainingBudget: number;
+  };
   onLogout: () => void;
 }
 
@@ -117,7 +122,7 @@ const EmployeeDashboard = ({ userData, onLogout }: EmployeeDashboardProps) => {
 
       {/* Tab Content */}
       <div className="min-h-[400px]">
-        {activeTab === "upload" && <ReceiptUploader />}
+        {activeTab === "upload" && <ReceiptUploader userData={userData} />}
         {activeTab === "chat" && <EmployeeChatUI userData={userData} />}
         {activeTab === "history" && (
           <Card>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ArrowLeft, Building2, Loader2, User } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,34 +27,15 @@ const LoginForm = ({ role, onLogin, onBack }: LoginFormProps) => {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Mock validation - accept any non-empty values
-    if (formData.primary && formData.secondary) {
-      const userData = role === "employee" 
-        ? { 
-            id: formData.primary, 
-            name: "John Doe", 
-            department: "Engineering",
-            remainingBudget: 2500
-          }
-        : { 
-            email: formData.primary, 
-            company: "TechCorp Inc.",
-            employeeCount: 45
-          };
-      
-      toast({
-        title: "Login successful!",
-        description: `Welcome ${role === "employee" ? userData.name : "Admin"}`,
-      });
-      
-      onLogin(userData);
-    } else {
-      toast({
-        title: "Login failed",
-        description: "Please fill in all fields",
-        variant: "destructive"
-      });
-    }
+    // Mock login data for Alice
+    const mockUserData = {
+      id: "EMP001",
+      name: "Alice",
+      email: "alice@example.com",
+      department: "Engineering",
+      remainingBudget: 5000
+    };
+    onLogin(mockUserData);
     
     setIsLoading(false);
   };
@@ -89,52 +69,45 @@ const LoginForm = ({ role, onLogin, onBack }: LoginFormProps) => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="primary">
-                {isEmployee ? "Employee ID" : "Admin Email"}
-              </Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="primary"
-                type={isEmployee ? "text" : "email"}
-                placeholder={isEmployee ? "Enter your employee ID" : "admin@company.com"}
-                value={formData.primary}
-                onChange={(e) => setFormData(prev => ({ ...prev, primary: e.target.value }))}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                defaultValue="alice@example.com"
                 required
               />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="secondary">
-                {isEmployee ? "Passcode" : "Admin Key"}
-              </Label>
+              <Label htmlFor="password">Password</Label>
               <Input
-                id="secondary"
+                id="password"
                 type="password"
-                placeholder={isEmployee ? "Enter your passcode" : "Enter admin key"}
-                value={formData.secondary}
-                onChange={(e) => setFormData(prev => ({ ...prev, secondary: e.target.value }))}
+                placeholder="Enter your password"
+                defaultValue="password123"
                 required
               />
             </div>
-
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onBack}>
+                Back
+              </Button>
+              <Button type="submit" className="flex-1" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  "Login"
+                )}
+              </Button>
+            </div>
           </form>
 
           <div className="mt-4 p-3 bg-muted rounded-lg text-sm text-muted-foreground">
             <p className="font-medium mb-1">Demo Credentials:</p>
-            <p>{isEmployee ? "Employee ID: demo123, Passcode: pass" : "Email: admin@demo.com, Key: admin123"}</p>
+            <p>{isEmployee ? "Employee ID: EMP001, Password: password123" : "Email: alice@example.com, Password: password123"}</p>
           </div>
         </CardContent>
       </Card>

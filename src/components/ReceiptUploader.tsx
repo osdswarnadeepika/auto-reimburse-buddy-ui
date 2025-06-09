@@ -1,14 +1,21 @@
-
 import { useState, useCallback } from "react";
-import { Upload, FileText, X, Check } from "lucide-react";
+import { Upload, FileText, X, Check, DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { paymanService, ReceiptValidationResult } from "@/lib/payman";
 
-const ReceiptUploader = () => {
+interface ReceiptUploaderProps {
+  userData: {
+    name: string;
+    email: string;
+  };
+}
+
+const ReceiptUploader = ({ userData }: ReceiptUploaderProps) => {
   const [dragOver, setDragOver] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -17,6 +24,7 @@ const ReceiptUploader = () => {
     description: "",
     category: "meals"
   });
+  const [transactionStatus, setTransactionStatus] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -48,20 +56,78 @@ const ReceiptUploader = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!uploadedFile || !formData.amount || !formData.description) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide all required information and upload a receipt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
+    setTransactionStatus(null);
 
-    // Simulate processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      const result: ReceiptValidationResult = await paymanService.validateAndProcessReceipt(
+        parseFloat(formData.amount),
+        formData.description,
+        userData.email,
+        userData.name
+      );
 
-    toast({
-      title: "Receipt submitted!",
-      description: "Your reimbursement request has been processed successfully.",
-    });
+      // Show appropriate toast based on result
+      toast({
+        title: result.status === 'reimbursed' ? 'Receipt submitted!' : 'Receipt requires review',
+        description: result.message,
+        variant: result.status === 'invalid_receipt' ? 'destructive' : 'default',
+      });
 
-    // Reset form
-    setUploadedFile(null);
-    setFormData({ amount: "", description: "", category: "meals" });
-    setIsProcessing(false);
+      if (result.status === 'reimbursed' && result.transactionId) {
+        // Get transaction status
+        const status = await paymanService.getTransactionStatus(result.transactionId);
+        setTransactionStatus(status);
+        
+        // Show transaction success toast
+        toast({
+          title: "TSD Transaction Successful",
+          description: `Amount: $${result.amount} TSD\nTransaction ID: ${result.transactionId}`,
+        });
+
+        // Reset form on success
+        setUploadedFile(null);
+        setFormData({ amount: "", description: "", category: "meals" });
+      }
+    } catch (error) {
+      console.error('Error submitting receipt:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process receipt. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const testPaymanConnection = async () => {
+    try {
+      const isConnected = await paymanService.testConnection();
+      toast({
+        title: isConnected ? "Connection Successful" : "Connection Failed",
+        description: isConnected 
+          ? "Successfully connected to Payman" 
+          : "Failed to connect to Payman. Please check your credentials.",
+        variant: isConnected ? "default" : "destructive",
+      });
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      toast({
+        title: "Error",
+        description: "Failed to test Payman connection",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -71,6 +137,15 @@ const ReceiptUploader = () => {
           <CardTitle>Upload Receipt</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Test Connection Button */}
+          <Button 
+            variant="outline" 
+            onClick={testPaymanConnection}
+            className="w-full mb-4"
+          >
+            Test Payman Connection
+          </Button>
+
           {/* File Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -133,16 +208,20 @@ const ReceiptUploader = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount ($)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-                  required
-                />
+                <Label htmlFor="amount">Amount (TSD)</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="pl-8"
+                    required
+                  />
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -171,6 +250,14 @@ const ReceiptUploader = () => {
                 required
               />
             </div>
+
+            {transactionStatus && (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <p className="text-sm text-green-600 dark:text-green-400">
+                  Transaction Status: {transactionStatus}
+                </p>
+              </div>
+            )}
 
             <Button 
               type="submit" 

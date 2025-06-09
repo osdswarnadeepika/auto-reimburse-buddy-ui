@@ -1,10 +1,10 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { paymanService } from "@/lib/payman";
 
 interface Message {
   id: number;
@@ -15,7 +15,10 @@ interface Message {
 }
 
 interface EmployeeChatUIProps {
-  userData: any;
+  userData: {
+    name: string;
+    email: string;
+  };
 }
 
 const EmployeeChatUI = ({ userData }: EmployeeChatUIProps) => {
@@ -51,38 +54,69 @@ const EmployeeChatUI = ({ userData }: EmployeeChatUIProps) => {
     setMessages(prev => [...prev, newMessage]);
   };
 
+  const extractAmountAndDescription = (text: string) => {
+    // Try to extract amount using common patterns
+    const amountMatch = text.match(/\$(\d+(?:\.\d{2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : null;
+    
+    // Remove the amount from the text to get the description
+    const description = text.replace(/\$\d+(?:\.\d{2})?/, '').trim();
+    
+    return { amount, description };
+  };
+
   const processExpense = async (userInput: string) => {
     setIsProcessing(true);
     
     // Add user message
     addMessage(userInput, "user");
     
-    // Simulate bot processing steps
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    addMessage("Got it! Let me process that expense for you... 🔍", "bot", "processing");
+    // Extract amount and description
+    const { amount, description } = extractAmountAndDescription(userInput);
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    addMessage("Checking if this looks like a valid receipt...", "bot", "processing");
+    if (!amount || !description) {
+      addMessage("I couldn't understand the amount or description. Please try again with a format like 'Lunch with client - $45'", "bot", "rejected");
+      setIsProcessing(false);
+      return;
+    }
+
+    // Add processing message
+    addMessage("Processing your expense... 🔍", "bot", "processing");
     
-    await new Promise(resolve => setTimeout(resolve, 1200));
-    addMessage("✅ Looks legitimate! Now checking your remaining budget...", "bot");
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate approval (90% chance)
-    const isApproved = Math.random() > 0.1;
-    
-    if (isApproved) {
-      addMessage("✅ Great news! Your expense has been approved and queued for payout. You should see it in your account within 1-2 business days!", "bot", "approved");
+    try {
+      const result = await paymanService.validateAndProcessReceipt(
+        amount,
+        description,
+        userData.email,
+        userData.name
+      );
+
+      if (result.status === 'reimbursed') {
+        addMessage(`✅ Great news! Your expense of $${amount} has been approved and processed. Transaction ID: ${result.transactionId}`, "bot", "approved");
+        toast({
+          title: "Expense Approved! 🎉",
+          description: `Amount: $${amount} TSD\nTransaction ID: ${result.transactionId}`
+        });
+      } else if (result.status === 'requires_approval') {
+        addMessage(`⚠️ Your expense of $${amount} requires approval. ${result.message}`, "bot", "processing");
+        toast({
+          title: "Expense Requires Approval",
+          description: result.message
+        });
+      } else {
+        addMessage(`❌ Sorry, I couldn't process your expense. ${result.message}`, "bot", "rejected");
+        toast({
+          title: "Expense Rejected",
+          description: result.message,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error processing expense:', error);
+      addMessage("❌ Sorry, there was an error processing your expense. Please try again.", "bot", "rejected");
       toast({
-        title: "Expense Approved! 🎉",
-        description: "Your reimbursement has been processed successfully."
-      });
-    } else {
-      addMessage("❌ Sorry, this expense couldn't be approved. It might exceed your remaining budget or fall outside company policy. Please check with your manager.", "bot", "rejected");
-      toast({
-        title: "Expense Rejected",
-        description: "Please review the details and try again.",
+        title: "Error",
+        description: "Failed to process expense. Please try again.",
         variant: "destructive"
       });
     }
