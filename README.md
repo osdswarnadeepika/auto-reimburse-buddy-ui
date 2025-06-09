@@ -1,4 +1,4 @@
-# Auto Reimburse Buddy UI
+# Auto Reimburse
 
 A modern web application for managing and automating reimbursement processes. Built with React, TypeScript, and Vite for optimal performance and developer experience.
 
